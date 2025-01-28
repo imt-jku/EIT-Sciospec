@@ -40,7 +40,7 @@ The **EIT Measurement App** is a MATLAB-based application that provides the foll
 1. Clone this repository:
 
    ```bash
-   git clone https://github.com/alexnho16/EIT-Sciospec.git
+   git clone https://github.com/imt-jku/EIT-Sciospec.git
    ```
 
 2. Ensure the [EIDORS library](https://eidors3d.sourceforge.net/) is installed.
