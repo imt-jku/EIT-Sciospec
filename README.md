@@ -112,9 +112,12 @@ The results include:
 ## Sciopy
 For Python users, there is a complementary library called [Sciopy](https://github.com/EITLabworks/sciopy), which provides similar functionality for EIT applications.
 
----
+## Citation
+If you find this project helpful in your research or work, please cite it as:
 
-##  LICENSE
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14851906.svg)](https://doi.org/10.5281/zenodo.14851906)
+--
+## LICENSE
 
 This project is licensed under the terms of the [MIT License](LICENSE). 
 Copyright [2024] [Alexander Hofer]
