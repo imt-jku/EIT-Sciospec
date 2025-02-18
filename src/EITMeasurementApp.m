@@ -68,8 +68,8 @@ classdef EITMeasurementApp < handle
             layoutCfg.spacing     = 10;
 
             app.fig = uifigure('Name', 'EIT Measurement App', ...
-                       'Position', [100, 100, 800, 800], ...
-                       'CloseRequestFcn', @(src, event) app.onCloseApp());
+                'Position', [100, 100, 800, 800], ...
+                'CloseRequestFcn', @(src, event) app.onCloseApp());
             mainLayout = uigridlayout(app.fig, [2, 1]);
             mainLayout.RowHeight = {'1x', 80};
             mainLayout.ColumnWidth = {'1x'};
@@ -131,7 +131,12 @@ classdef EITMeasurementApp < handle
             if isempty(availablePorts)
                 availablePorts = {'No Ports Available'};
             end
-            app.serialPortField = uidropdown(basicGrid, 'Items', availablePorts, 'Value', app.serialPortField.Value);
+            if ismember(app.serialPortField.Value, availablePorts)
+                defaultPort = app.serialPortField.Value;
+            else
+                defaultPort = availablePorts{1};
+            end
+            app.serialPortField = uidropdown(basicGrid, 'Items', availablePorts, 'Value', defaultPort);
             uibutton(basicGrid, 'Text', 'Refresh', 'ButtonPushedFcn', @(btn, event) app.refreshSerialPorts());
 
             % Row 2: Baud Rate
@@ -425,6 +430,7 @@ classdef EITMeasurementApp < handle
             app.hyperparameterField.Value = defaultParams.hyperparameter;
             app.measurementsToReconstruct.Value = defaultParams.measurementsToReconstruct;
             app.remove2WireCheckbox.Value = defaultParams.remove2Wire;
+            app.showPlots.Value = defaultParams.showPlots;
             app.iterationsField.Value = defaultParams.iterations;
         end
 
