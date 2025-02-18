@@ -18,18 +18,18 @@ classdef Model
             radius = 75; 
             nBoundaryPoints = 512;
             nElectrodes = 16;      
-            electrodeShape = [4,10.2];
+
             theta = linspace(0, 2*pi, nBoundaryPoints+1);
             theta(end) = [];
             outer_shape = [radius * cos(theta)', radius * sin(theta)'];
-          
+
             theta_elec = linspace(0, 2*pi, nElectrodes+1);
             theta_elec(end) = [];
             electrodePositions = [radius * cos(theta_elec)', radius * sin(theta_elec)'];
-            fwdModel = ng_mk_2d_model({outer_shape, gridsize}, electrodePositions, electrodeShape);
+            fwdModel = ng_mk_2d_model({outer_shape, gridsize}, electrodePositions, [2, 10]);
 
             for i = 1:length(electrodePositions)
-                fwdModel.electrode(i).z_contact = 0.1;
+                fwdModel.electrode(i).z_contact = 0.01;
             end
         end
 

@@ -161,7 +161,7 @@ classdef EITMeasurementApp < handle
 
             % Row 7: Frequency Spacing
             uilabel(basicGrid, 'Text', 'Frequency Spacing:', 'HorizontalAlignment', 'right');
-            app.frequencySpacingField = uidropdown(basicGrid, 'Items', {'Linear', 'Logarithmic'}, 'Value', app.frequencySpacingField.Value);
+            app.frequencySpacingField = uidropdown(basicGrid, 'Items', {'Linear', 'Logarithmic'}, 'Value', app.frequencyCountField.Value);
             uilabel(basicGrid, 'Text', '');
 
             % Row 8: Pattern Type + Info Button
@@ -595,7 +595,11 @@ classdef EITMeasurementApp < handle
 
                 modelType = app.modelTypeField.Value;
                 gridSize = app.gridSizeField.Value;
+                priorType = app.priorField.Value;
+                solverType = app.solverField.Value;
                 componentType = app.componentTypeField.Value;
+                hyperparameters = strsplit(app.hyperparameterField.Value, ',');
+                hyperparameterValues = cellfun(@(x) str2double(x), hyperparameters, 'UniformOutput', false);
 
                 app.statusText.Value = 'Running Continuous EIT Measurement...';
                 drawnow;
@@ -643,8 +647,7 @@ classdef EITMeasurementApp < handle
                 end
 
                 app.stopFlag = false;
-                i=1;
-                while true
+                for i = 2:numMeasurements
                     if app.stopFlag
                         app.statusText.Value = 'Measurement stopped by user.';
                         break;
@@ -659,8 +662,7 @@ classdef EITMeasurementApp < handle
                     curVec = Reconstruction.buildEidorsDataForMeasurement(curMatrix, measurementNames{i}, componentType, fwdModel);
                     fprintf('Measurement %d completed.\n', i);
 
-                    app.updateSinglePlotWithMeasurement(curVec, baseLineVec, fwdModel);
-                    i = i + 1;
+                    app.updateSinglePlotWithMeasurement(curVec, baseLineVec, fwdModel, priorType, solverType, hyperparameterValues);
                 end
 
                 if ~app.stopFlag
@@ -672,8 +674,8 @@ classdef EITMeasurementApp < handle
             end
         end
 
-        function updateSinglePlotWithMeasurement(app, curEidorsData, baseLineEidorsData, fwdModel)
-            persistent fig ax invModel data1
+        function updateSinglePlotWithMeasurement(app, curEidorsData, baseLineEidorsData, fwdModel, priorType, solverType, hyperparameterValues)
+            persistent fig ax solver prior hyperparameter invModel data1
 
             try
                 if isempty(fig) || ~isvalid(fig)
@@ -682,11 +684,6 @@ classdef EITMeasurementApp < handle
                     hold(ax, 'on');
 
                     disp('Figure and axes created for EIT Reconstruction.');
-
-                    priorType = app.priorField.Value;
-                    solverType = app.solverField.Value;
-                    hyperparameters = strsplit(app.hyperparameterField.Value, ',');
-                    hyperparameterValues = cellfun(@(x) str2double(x), hyperparameters, 'UniformOutput', false);
 
                     prior = Reconstruction.setPriors(priorType);
                     solver = Reconstruction.setSolver(solverType);

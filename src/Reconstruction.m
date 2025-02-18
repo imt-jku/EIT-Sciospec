@@ -20,7 +20,7 @@ classdef Reconstruction
             if ~isfield(data, measurementName)
                 error('Measurement data not available for the specified time index.');
             end
-        
+
             measurementData = data.(measurementName);
             eidorsDataForTime = {};
             frequencyFields = fieldnames(measurementData);
@@ -78,7 +78,7 @@ classdef Reconstruction
                 'gaussian', @prior_gaussian_HPF, ...
                 'TV', @prior_TV, ...
                 'bayesian', @prior_gaussian_Hyperparameter ...
-            );
+                );
 
             if nargin == 1 && ischar(varargin{1}) && strcmp(varargin{1}, 'all')
                 priors = struct2cell(availablePriors);
@@ -117,7 +117,7 @@ classdef Reconstruction
             % Validate the frequency index to ensure it is within bounds.
             if frequencyIndex < 1 || frequencyIndex > length(frequencies)
                 error('Reconstruction:InvalidFrequencyIndex', ...
-                      'Frequency index %d is out of bounds.', frequencyIndex);
+                    'Frequency index %d is out of bounds.', frequencyIndex);
             end
         end
 
@@ -134,7 +134,7 @@ classdef Reconstruction
                     eidorsData{end+1} = eidors_obj('data', identifier, 'meas', dataVec, 'fwd_model', fwdModel);
                 else
                     warning('Reconstruction:FrequencyNotFound', ...
-                            'Frequency %s not found in measurement %s.', frequencyKey, measurementName);
+                        'Frequency %s not found in measurement %s.', frequencyKey, measurementName);
                 end
             end
         end
@@ -150,7 +150,7 @@ classdef Reconstruction
                 eidorsData = eidors_obj('data', identifier, 'meas', dataVec, 'fwd_model', fwdModel);
             else
                 warning('Reconstruction:FrequencyNotFound', ...
-                        'Frequency %s not found in measurement %s.', frequencyKey, measurementName);
+                    'Frequency %s not found in measurement %s.', frequencyKey, measurementName);
             end
         end
 
@@ -159,7 +159,7 @@ classdef Reconstruction
             iter = 1;
             totalIterations = (length(data) - 1) * length(solvers) * length(priors) * length(hyperparameter_values);
             config(totalIterations) = struct('dataIdx', [], 'solverIdx', [], 'priorIdx', [], 'hyperIdx', []);
-        
+
             for dataIdx = 2:length(data)
                 for solverIdx = 1:length(solvers)
                     for priorIdx = 1:length(priors)
@@ -175,26 +175,29 @@ classdef Reconstruction
             end
         end
 
-        function plotAllMeasurements(eidorsData, noOfMeasurements, solvers, priors, hyperparameter_values, fwdModel, savePath, iterations)
+        function plotAllMeasurements(eidorsData, noOfMeasurements, solvers, priors, hyperparameter_values, fwdModel, savePath, iterations, showPlot)
+            if nargin < 9
+                showPlot = false;
+            end
             % Plot all measurements for the given solvers, priors, and hyperparameters.
             for solverIdx = 1:length(solvers)
                 for priorIdx = 1:length(priors)
                     for hyperIdx = 1:length(hyperparameter_values)
-                        Reconstruction.visualizeSingleCombination(eidorsData, solverIdx, priorIdx, hyperIdx, noOfMeasurements, solvers, priors, hyperparameter_values, fwdModel, savePath, iterations);
+                        Reconstruction.visualizeSingleCombination(eidorsData, solverIdx, priorIdx, hyperIdx, noOfMeasurements, solvers, priors, hyperparameter_values, fwdModel, savePath, iterations, showPlot);
                     end
                 end
             end
         end
-        
+
         function [allElemData, invSolveResults] = extractResults(data, numMeasurements, invModel)
             % Handles the extraction of results and preparation for visualization.
             invSolveResults = cell(1, numMeasurements);
             allElemData = [];
-            
+
             for dataIdx = 2:numMeasurements
                 invSolveResults{dataIdx} = inv_solve(invModel, data{1}, data{dataIdx});
             end
-        
+
             for dataIdx = 2:numMeasurements
                 imgr = invSolveResults{dataIdx};
                 if isfield(imgr, 'node_data')
@@ -205,54 +208,79 @@ classdef Reconstruction
             end
         end
 
-        function visualizeSingleCombination(data, solverIdx, priorIdx, hyperIdx, measurements, solvers, priors, hyperparameter_values, fwdModel, savePath, iterations)
-            % Visualize a single combination of solver, prior, and hyperparameter.
-        
+        function visualizeSingleCombination(data, solverIdx, priorIdx, hyperIdx, measurements, ...
+                solvers, priors, hyperparameter_values, fwdModel, savePath, iterations, showPlots)
+
+            if nargin < 12 || isempty(showPlots)
+                showPlots = false;
+            end
+
             solver = solvers{solverIdx};
             prior = priors{priorIdx};
             hyperparameter = hyperparameter_values{hyperIdx};
-        
+
             invModel = Reconstruction.createInverseModel(1, solver, prior, hyperparameter, fwdModel, iterations);
-        
+
             numMeasurements = min(length(data), measurements);
             cols = min(numMeasurements - 1, 5);
             rows = ceil((numMeasurements - 1) / cols);
-        
+
             [allElemData, invSolveResults] = Reconstruction.extractResults(data, numMeasurements, invModel);
-        
-            fig = figure('Visible', 'off');
+
+            if showPlots
+                fig = figure('Visible', 'on');
+            else
+                fig = figure('Visible', 'off');
+            end
+
             colormap(jet);
             cmin = min(real(allElemData));
             cmax = max(real(allElemData));
-        
+
             for dataIdx = 2:numMeasurements
                 subplot(rows, cols, dataIdx - 1);
                 imgr = invSolveResults{dataIdx};
                 Reconstruction.plotDataField(imgr, fwdModel);
-        
                 view(2);
                 axis off;
                 axis equal tight;
                 clim([cmin cmax]);
-        
                 title(sprintf("Measurement %d", dataIdx - 1), 'FontSize', 15);
             end
-        
+
             colorbar('Position', [0.92, 0.1, 0.02, 0.8], 'FontSize', 18);
-       
+
             set(fig, 'Position', [100, 100, 1400, 800]);
             set(fig, 'PaperPositionMode', 'auto');
             set(fig, 'PaperPosition', [0 0 14 8]);
             set(fig, 'PaperSize', [14 8]);
-        
-            try
-                resolution = 800;
-                savePathFile = Reconstruction.generateSavePath(savePath, hyperparameter, prior, solver, "single.png");
-                print(fig, savePathFile, '-dpng', ['-r', num2str(resolution)]);
-            catch ME
-                warning(ME.identifier, '%s', ME.message);
+
+            resolution = 800;
+            savePathFile = Reconstruction.generateSavePath(savePath, hyperparameter, prior, solver, "single.png");
+
+            if showPlots
+                fig.CloseRequestFcn = @(src, event) saveAndCloseFigure(src, event, savePathFile, resolution);
+                uiwait(fig);
+            else
+                try
+                    print(fig, savePathFile, '-dpng', ['-r', num2str(resolution)]);
+                catch ME
+                    warning(ME.identifier, '%s', ME.message);
+                end
+                close(fig);
             end
-            close(fig);
+
+               function saveAndCloseFigure(src, event, fileName, res)
+                src.CloseRequestFcn = '';  
+                src.Visible = 'off';
+                
+                try
+                    print(src, fileName, '-dpng', ['-r', num2str(res)]);
+                catch ME
+                    warning(ME.identifier, '%s', ME.message);
+                end
+                delete(src);
+            end
         end
 
         function performReconstructionAndVisualize(data, dataIdx, solverIdx, priorIdx, hyperIdx, solvers, priors, hyperparameter_values, savePath, fwdModel, iterations)
@@ -260,13 +288,13 @@ classdef Reconstruction
             solver = solvers{solverIdx};
             prior = priors{priorIdx};
             hyperparameter = hyperparameter_values{hyperIdx};
-        
+
             if strcmp(func2str(solver), 'inv_solve_TV_pdipm')
                 invModel = Reconstruction.initializeTVModel(solver, hyperparameter, fwdModel);
             else
                 invModel = Reconstruction.createInverseModel(dataIdx, solver, prior, hyperparameter, fwdModel, iterations);
             end
-        
+
             imgr = inv_solve(invModel, data{1}, data{dataIdx});
             Reconstruction.eidorsReconstruction(imgr, savePath, prior, hyperparameter, solver);
         end
@@ -340,16 +368,16 @@ classdef Reconstruction
 
         function animateAllMeasurements(data, noOfMeasurements, solvers, priors, hyperparameter_values, fwdModel, savePath, iterations)
             % Animate the visualization of all measurements for given solvers, priors, and hyperparameters.
-            
+
             solver = solvers{1};
             prior = priors{1};
             hyperparameter = hyperparameter_values{1};
             videoPath = Reconstruction.generateSavePath(savePath, hyperparameter, prior, solver, "animation.mp4");
             v = VideoWriter(videoPath, 'MPEG-4');
-            v.FrameRate = 2; 
+            v.FrameRate = 2;
             open(v);
             invModel = Reconstruction.createInverseModel(1, solver, prior, hyperparameter, fwdModel, iterations);
-        
+
             numMeasurements = length(data);
             if numMeasurements > noOfMeasurements
                 numMeasurements = noOfMeasurements;
@@ -357,38 +385,38 @@ classdef Reconstruction
 
             invSolveResults = cell(1, numMeasurements);
             allElemData = [];
-        
+
             for dataIdx = 2:numMeasurements
                 invSolveResults{dataIdx} = inv_solve(invModel, data{1}, data{dataIdx});
                 imgr = invSolveResults{dataIdx};
-                
+
                 if isfield(imgr, 'node_data')
                     allElemData = [allElemData; real(imgr.node_data)];
                 else
                     allElemData = [allElemData; real(imgr.elem_data)];
                 end
             end
-        
+
             cmin = min(real(allElemData));
             cmax = max(real(allElemData));
             save_path_colorbar = Reconstruction.generateSavePath(savePath, hyperparameter, prior, solver,"colorbar.png");
             Reconstruction.saveColorbar(cmin, cmax, save_path_colorbar);
-            fig = figure('Visible', 'off');
+            fig = figure('Visible', 'on');
             colormap(jet);
 
             for dataIdx = 2:numMeasurements
                 imgr = invSolveResults{dataIdx};
-        
+
                 Reconstruction.plotDataField(imgr, imgr.fwd_model);
-        
+
                 clim([cmin cmax]);
-        
+
                 title(sprintf('Measurement %d', dataIdx - 1), 'FontSize', 18);
-        
+
                 frame = getframe(fig);
                 writeVideo(v, frame);
             end
-        
+
             close(v);
             close(fig);
         end
@@ -399,24 +427,24 @@ classdef Reconstruction
             v = VideoWriter(videoFilename, 'MPEG-4');
             v.FrameRate = 4;
             open(v);
-            
+
             numHyperparameters = length(hyperparameter_values);
             allElemData = [];
             invSolveResults = cell(numHyperparameters, 1);
-            
+
             for hyperIdx = 1:numHyperparameters
                 solver = solvers{1};
                 prior = priors{1};
                 hyperparameter = hyperparameter_values{hyperIdx};
-        
+
                 if strcmp(func2str(solver), 'inv_solve_TV_pdipm')
                     invModel = Reconstruction.initializeTVModel(solver, hyperparameter, fwdModel);
                 else
                     invModel = Reconstruction.createInverseModel(1, solver, prior, hyperparameter, fwdModel, iterations);
                 end
-                
+
                 invSolveResults{hyperIdx} = inv_solve(invModel, data{1}, data{measurementIdx});
-        
+
                 imgr = invSolveResults{hyperIdx};
                 if isfield(imgr, 'node_data')
                     allElemData = [allElemData; real(imgr.node_data)];
@@ -424,26 +452,26 @@ classdef Reconstruction
                     allElemData = [allElemData; real(imgr.elem_data)];
                 end
             end
-        
+
             cmin = min(real(allElemData));
             cmax = max(real(allElemData));
             save_path_colorbar = Reconstruction.generateSavePath(savePath, hyperparameter, prior, solver,"colorbar.png");
             Reconstruction.saveColorbar(cmin, cmax, save_path_colorbar);
-        
-            fig = figure('Visible', 'off');
+
+            fig = figure('Visible', 'on');
             colormap(jet);
-            
+
             clim([cmin cmax]);
-        
+
             for hyperIdx = 1:numHyperparameters
                 imgr = invSolveResults{hyperIdx};
-                
+
                 cla;
-        
+
                 Reconstruction.plotDataField(imgr, imgr.fwd_model);
-        
+
                 clim([cmin cmax]);
-        
+
                 value = hyperparameter_values{hyperIdx};
                 if value == 1
                     titleString = '1';
@@ -453,18 +481,18 @@ classdef Reconstruction
                     titleString = sprintf('\\lambda = %.2f \\times 10^{%d}', mantissa, exponent);
                 end
                 title(titleString, 'FontSize', 18);
-        
+
                 frame = getframe(fig);
                 writeVideo(v, frame);
             end
-        
+
             close(v);
             close(fig);
         end
-        
+
         function visualizeGroupedReconstructions(data, groupBy, solvers, priors, hyperparameter_values, fwdModel, basePath, iterations, measurementIdx)
             % Visualize grouped reconstructions based on the specified parameter.
-        
+
             switch groupBy
                 case 'hyperparameter'
                     numGroups = length(hyperparameter_values);
@@ -478,40 +506,40 @@ classdef Reconstruction
                 otherwise
                     error('Invalid grouping parameter. Use "hyperparameter", "solver", or "prior".');
             end
-        
+
             allElemData = [];
             invSolveResults = cell(1, numGroups);
-        
+
             for groupIdx = 1:numGroups
                 [solver, prior, hyperparameter] = getConfig(groupIdx);
-        
+
                 if strcmp(func2str(solver), 'inv_solve_TV_pdipm')
                     invModel = Reconstruction.initializeTVModel(solver, hyperparameter, fwdModel);
                 else
                     invModel = Reconstruction.createInverseModel(1, solver, prior, hyperparameter, fwdModel, iterations);
                 end
-        
+
                 imgr = inv_solve(invModel, data{1}, data{measurementIdx});
-                invSolveResults{groupIdx} = imgr;  
-                
+                invSolveResults{groupIdx} = imgr;
+
                 if isfield(imgr, 'node_data')
                     allElemData = [allElemData; real(imgr.node_data)];
                 else
                     allElemData = [allElemData; real(imgr.elem_data)];
                 end
             end
-        
+
             cmin = min(real(allElemData));
             cmax = max(real(allElemData));
-            fig = figure('Visible', 'off');
+            fig = figure('Visible', 'on');
             colormap(jet);
-        
+
             for groupIdx = 1:numGroups
                 subplot(ceil(numGroups / 5), 5, groupIdx);
                 imgr = invSolveResults{groupIdx};
                 Reconstruction.plotDataField(imgr, fwdModel);
                 clim([cmin, cmax]);
-        
+
                 switch groupBy
                     case 'hyperparameter'
                         value = hyperparameter_values{groupIdx};
@@ -531,18 +559,18 @@ classdef Reconstruction
                 end
                 title(titleString, 'FontSize', 18);
             end
-        
+
             savePath = Reconstruction.generateSavePath(basePath, hyperparameter, prior, solver, 'GroupedReconstructions.png');
             saveas(fig, savePath);
             close(fig);
         end
 
-        function saveColorbar(cmin, cmax, savePath) 
-            fig = figure('Visible', 'off');
+        function saveColorbar(cmin, cmax, savePath)
+            fig = figure('Visible', 'on');
             colormap(jet);
             clim([cmin, cmax]);
             colorbar;
-            
+
             saveas(fig, savePath);
             close(fig);
         end
@@ -551,7 +579,7 @@ classdef Reconstruction
             % Generates a save path based on the hyperparameter, prior, solver, and reconstruction type.
             priorName = replace(func2str(prior), '_', ' ');
             solverName = replace(func2str(solver), '_', ' ');
-            
+
             if hyperparameter == 1
                 hyperparameterStr = '1';
             else
@@ -559,7 +587,7 @@ classdef Reconstruction
                 mantissa = hyperparameter / 10^exponent;
                 hyperparameterStr = sprintf('%.2fxe%d', mantissa, exponent);
             end
-            
+
             dirName = sprintf('%s_%s_%s_%s', solverName, priorName, hyperparameterStr, reconstructionType);
             dirName = replace(dirName, ' ', '_');
 
